@@ -1,1 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Free Tutoring — Welcome</title>
+  <style>
+    :root{--accent:#2b6cb0;--bg:#f7fafc;--card:#ffffff;--muted:#666}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    body{background:linear-gradient(180deg,#e6f0ff 0%,var(--bg) 60%);display:flex;align-items:flex-start;justify-content:center;padding:48px}
+    .container{width:100%;max-width:900px}
+    header{background:var(--card);padding:28px;border-radius:12px;box-shadow:0 6px 20px rgba(46,60,80,.08);display:flex;align-items:center;gap:20px}
+    .logo{width:68px;height:68px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#805ad5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:6px 0 0;color:var(--muted)}
 
+    main{margin-top:20px;background:var(--card);padding:24px;border-radius:12px;box-shadow:0 6px 20px rgba(46,60,80,.06)}
+    .section{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .info{max-width:70%}
+    .muted{color:var(--muted);font-size:14px}
+
+    .switch-btn{background:linear-gradient(90deg,var(--accent),#805ad5);color:#fff;padding:14px 18px;border-radius:10px;border:none;font-weight:600;cursor:pointer}
+    .small{font-size:13px;padding:8px 12px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+
+    /* Accessible focus */
+    .switch-btn:focus{outline:3px solid rgba(66,153,225,.25)}
+
+    /* full-screen overlay used for local preview (not used for the cloaker) */
+    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;opacity:0;pointer-events:none;transition:opacity .25s}
+    .overlay.show{opacity:1;pointer-events:auto}
+    .spinner{width:48px;height:48px;border-radius:50%;border:5px solid rgba(255,255,255,.12);border-top-color:#fff;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .note{margin-top:12px;color:#9aa4b2;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">FT</div>
+      <div>
+        <h1>Free Tutoring</h1>
+        <p class="lead">Blessed, volunteer-driven tutoring for students — no cost, no sign-up.</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="section">
+        <div class="info">
+          <h2 style="margin:0 0 6px 0">About Blank Cloacker <span class="small">(required to get to games)</span></h2>
+          <p class="muted">Flip the switch below to continue. This will open a protected view (about:blank) and then load the games site so the target domain is not directly visible in the address bar.</p>
+          <p class="note">Notes: If embedding the games site is blocked by the target site, the cloaker will open the site in a new tab without sending a referrer.</p>
+        </div>
+
+        <div style="text-align:right">
+          <button id="cloakBtn" class="switch-btn" aria-pressed="false">Enable Cloak &raquo;</button>
+        </div>
+      </section>
+
+      <hr style="margin:20px 0;border:none;border-top:1px solid #eef2f7" />
+
+      <section>
+        <h3>Why this exists</h3>
+        <p class="muted">This demo shows how a page can open an intermediate about:blank document and then load another site inside that blank document. This makes the browser URL bar show <code>about:blank</code> while the iframe displays the target. Edit the GAME_URL in the script below to set the real games address.</p>
+      </section>
+
+    </main>
+
+    <footer>
+      <div>Made by Free Tutoring Project</div>
+    </footer>
+  </div>
+
+  <div id="overlay" class="overlay" role="status" aria-hidden="true">
+    <div style="text-align:center;color:#fff">
+      <div class="spinner" aria-hidden="true"></div>
+      <div style="margin-top:12px">Preparing secure view…</div>
+    </div>
+  </div>
+
+  <script>
+    // === CONFIGURE THIS ===
+    // Replace the string below with the real games URL you want to load.
+    const GAME_URL = 'https://example.com/'; // <-- CHANGE THIS
+    // ======================
+
+    const cloakBtn = document.getElementById('cloakBtn');
+    const overlay = document.getElementById('overlay');
+
+    function showOverlay() {
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden','false');
+    }
+    function hideOverlay(){
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden','true');
+    }
+
+    cloakBtn.addEventListener('click', async function() {
+      cloakBtn.disabled = true;
+      cloakBtn.setAttribute('aria-pressed','true');
+      showOverlay();
+
+      try {
+        // Open a new tab/window with about:blank. We'll write into that blank page to create an iframe that points at the target site.
+        // This keeps the new tab's address bar showing about:blank while the iframe loads the game.
+        const w = window.open('about:blank', '_blank');
+        if (!w) {
+          // popup blocked — fallback to opening target directly in a new tab
+          hideOverlay();
+          window.open(GAME_URL, '_blank', 'noopener,noreferrer');
+          cloakBtn.disabled = false;
+          cloakBtn.setAttribute('aria-pressed','false');
+          return;
+        }
+
+        // Write a minimal HTML shell into the about:blank page.
+        const safeHtml = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Loading…</title>
+<style>html,body{height:100%;margin:0;background:#000;color:#fff}body{display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}</style>
+</head>
+<body>
+  <div id="root" style="position:fixed;inset:0;display:flex;flex-direction:column;">
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#cbd5e1">Loading secure view…</div>
+  </div>
+  <script>
+    (function(){
+      // target URL injected by parent script
+      const TARGET = ${JSON.stringify(GAME_URL)};
+
+      // Create the iframe and attempt to load the target site.
+      var iframe = document.createElement('iframe');
+      iframe.style.border='none';
+      iframe.style.width='100%';
+      iframe.style.height='100%';
+      iframe.referrerPolicy = 'no-referrer';
+      iframe.src = TARGET;
+      iframe.loading = 'eager';
+      iframe.allow = 'clipboard-read; clipboard-write; fullscreen; autoplay; accelerometer; gyroscope; encrypted-media; picture-in-picture;';
+
+      var root = document.getElementById('root');
+      // replace the loading text with the iframe
+      setTimeout(function(){
+        try{
+          root.innerHTML='';
+          root.appendChild(iframe);
+        }catch(e){
+          // If anything goes wrong, fall back after the timeout below.
+        }
+      }, 300);
+
+      // Fallback: if the iframe doesn't appear to load within 3 seconds, open the target in a new tab (no-referrer)
+      var loaded = false;
+      iframe.addEventListener('load', function(){ loaded = true; });
+      setTimeout(function(){
+        if (!loaded) {
+          // Open the target in a new tab without referrer and close this about:blank window to avoid exposing it.
+          try {
+            window.open(TARGET, '_blank', 'noopener,noreferrer');
+            // Optionally show a message before closing
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Inter,system-ui">Embedding blocked — opened games in a new tab.</div>';
+            // close after a short delay so the user sees message
+            setTimeout(function(){ window.close(); }, 1200);
+          } catch(err) {
+            // ignore
+          }
+        }
+      }, 3000);
+    })();
+  <\/script>
+</body>
+</html>`;
+
+        // Write and focus the new window.
+        w.document.open();
+        w.document.write(safeHtml);
+        w.document.close();
+        w.focus();
+
+        hideOverlay();
+        cloakBtn.disabled = false;
+        cloakBtn.setAttribute('aria-pressed','false');
+
+      } catch (err) {
+        console.error('Cloak failed', err);
+        hideOverlay();
+        cloakBtn.disabled = false;
+        cloakBtn.setAttribute('aria-pressed','false');
+        // if something goes wrong, open in new tab as chosen fallback
+        window.open(GAME_URL, '_blank', 'noopener,noreferrer');
+      }
+    });
+  </script>
+</body>
+</html>
