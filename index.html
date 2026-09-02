@@ -50,7 +50,7 @@
       <section class="section">
         <div class="info">
           <h2 style="margin:0 0 6px 0">About Blank Cloacker <span class="small">(required to get to games)</span></h2>
-          <p class="muted">Flip the switch below to continue. This will open a protected view (about:blank) and then load the games site so the target domain is not directly visible in the address bar.</p>
+          <p class="muted">Flip the switch below to continue. This will navigate the tab to a secure blank document and then load the games site so the target domain is not directly visible in the address bar.</p>
           <p class="note">Notes: If embedding the games site is blocked by the target site, the cloaker will open the site in a new tab without sending a referrer.</p>
         </div>
 
@@ -63,7 +63,7 @@
 
       <section>
         <h3>Why this exists</h3>
-        <p class="muted">This demo shows how a page can open an intermediate about:blank document and then load another site inside that blank document. This makes the browser URL bar show <code>about:blank</code> while the iframe displays the target. Edit the GAME_URL in the script below to set the real games address.</p>
+        <p class="muted">This demo shows how a page can navigate to an intermediate blank document and then load another site inside that blank document. This makes the browser URL bar show <code>about:blank</code> while the iframe displays the target. Edit the GAME_URL in the script below to set the real games address.</p>
       </section>
 
     </main>
@@ -82,8 +82,11 @@
 
   <script>
     // === CONFIGURE THIS ===
-    // Replace the string below with the real games URL you want to load.
-    const GAME_URL = 'https://example.com/'; // <-- CHANGE THIS
+    // Leave GAME_URL blank if you will paste it into the prompt later, or set it to your games site.
+    // The script will attempt to navigate the current tab to about:blank and write an iframe there.
+    // If the browser disallows same-tab writing, it will fall back to opening a new about:blank tab and write the iframe there.
+    // If embedding is blocked by the target site, the blank window will open the target in a new tab (no-referrer).
+    const GAME_URL = ''; // <-- OPTIONAL: set your games URL here, or paste it into the about:blank shell later.
     // ======================
 
     const cloakBtn = document.getElementById('cloakBtn');
@@ -103,85 +106,102 @@
       cloakBtn.setAttribute('aria-pressed','true');
       showOverlay();
 
-      try {
-        // Open a new tab/window with about:blank. We'll write into that blank page to create an iframe that points at the target site.
-        // This keeps the new tab's address bar showing about:blank while the iframe loads the game.
-        const w = window.open('about:blank', '_blank');
-        if (!w) {
-          // popup blocked — fallback to opening target directly in a new tab
-          hideOverlay();
-          window.open(GAME_URL, '_blank', 'noopener,noreferrer');
-          cloakBtn.disabled = false;
-          cloakBtn.setAttribute('aria-pressed','false');
-          return;
-        }
-
-        // Write a minimal HTML shell into the about:blank page.
-        const safeHtml = `<!doctype html>
+      // Build the HTML shell that will be written into the blank document. The shell will try to load GAME_URL if present,
+      // otherwise it will show a simple prompt where the user can paste the games URL (useful if you don't want the URL in the file).
+      const shellHtml = (target) => `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Loading…</title>
-<style>html,body{height:100%;margin:0;background:#000;color:#fff}body{display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}</style>
+<style>html,body{height:100%;margin:0;background:#000;color:#fff}body{display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial} .btn{background:#2b6cb0;color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer}</style>
 </head>
 <body>
   <div id="root" style="position:fixed;inset:0;display:flex;flex-direction:column;">
-    <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#cbd5e1">Loading secure view…</div>
+    <div id="message" style="flex:1;display:flex;align-items:center;justify-content:center;color:#cbd5e1">Preparing secure view…</div>
   </div>
   <script>
     (function(){
-      // target URL injected by parent script
-      const TARGET = ${JSON.stringify(GAME_URL)};
+      var TARGET = ${JSON.stringify(target || '')};
 
-      // Create the iframe and attempt to load the target site.
-      var iframe = document.createElement('iframe');
-      iframe.style.border='none';
-      iframe.style.width='100%';
-      iframe.style.height='100%';
-      iframe.referrerPolicy = 'no-referrer';
-      iframe.src = TARGET;
-      iframe.loading = 'eager';
-      iframe.allow = 'clipboard-read; clipboard-write; fullscreen; autoplay; accelerometer; gyroscope; encrypted-media; picture-in-picture;';
-
-      var root = document.getElementById('root');
-      // replace the loading text with the iframe
-      setTimeout(function(){
+      function loadTarget(url){
+        var iframe = document.createElement('iframe');
+        iframe.style.border='none';
+        iframe.style.width='100%';
+        iframe.style.height='100%';
+        iframe.referrerPolicy = 'no-referrer';
+        iframe.src = url;
+        iframe.loading = 'eager';
+        iframe.allow = 'clipboard-read; clipboard-write; fullscreen; autoplay; accelerometer; gyroscope; encrypted-media; picture-in-picture;';
+        var root = document.getElementById('root');
         try{
           root.innerHTML='';
           root.appendChild(iframe);
         }catch(e){
-          // If anything goes wrong, fall back after the timeout below.
+          // ignored
         }
-      }, 300);
 
-      // Fallback: if the iframe doesn't appear to load within 3 seconds, open the target in a new tab (no-referrer)
-      var loaded = false;
-      iframe.addEventListener('load', function(){ loaded = true; });
-      setTimeout(function(){
-        if (!loaded) {
-          // Open the target in a new tab without referrer and close this about:blank window to avoid exposing it.
-          try {
-            window.open(TARGET, '_blank', 'noopener,noreferrer');
-            // Optionally show a message before closing
-            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Inter,system-ui">Embedding blocked — opened games in a new tab.</div>';
-            // close after a short delay so the user sees message
-            setTimeout(function(){ window.close(); }, 1200);
-          } catch(err) {
-            // ignore
-          }
-        }
-      }, 3000);
+        // If iframe doesn't load within 3s, fallback to opening the target in a new tab without referrer
+        var loaded = false;
+        iframe.addEventListener('load', function(){ loaded = true; });
+        setTimeout(function(){ if (!loaded) { try{ window.open(url, '_blank', 'noopener,noreferrer'); document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Inter,system-ui">Embedding blocked — opened games in a new tab.</div>'; setTimeout(function(){ window.close(); }, 1200); }catch(err){} } }, 3000);
+      }
+
+      if (TARGET) {
+        loadTarget(TARGET);
+      } else {
+        // show simple UI to paste target URL so it doesn't live in the repo
+        var root = document.getElementById('root');
+        root.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;"><input id="u" placeholder="Paste games URL here" style="padding:8px;border-radius:8px;border:none;width:320px;" /><div><button id="g" class="btn">Load games</button></div></div>';
+        document.getElementById('g').addEventListener('click', function(){ var u = document.getElementById('u').value.trim(); if (u) loadTarget(u); });
+        // Allow Enter key
+        document.getElementById('u').addEventListener('keydown', function(e){ if (e.key === 'Enter') document.getElementById('g').click(); });
+      }
     })();
   <\/script>
 </body>
 </html>`;
 
-        // Write and focus the new window.
-        w.document.open();
-        w.document.write(safeHtml);
-        w.document.close();
-        w.focus();
+      try {
+        // First attempt: navigate the current tab to about:blank and get a writable handle via window.open with _self.
+        // Some browsers return the current window object which can be written into; others may return null. We handle both.
+        var written = false;
+        try {
+          var same = window.open('about:blank', '_self');
+          if (same && same.document) {
+            // If GAME_URL is set in this file, inject it into the shell; otherwise leave blank so the user can paste it.
+            same.document.open();
+            same.document.write(shellHtml(GAME_URL || ''));
+            same.document.close();
+            written = true;
+          }
+        } catch (e) {
+          // ignore and fall back
+        }
+
+        if (!written) {
+          // Fallback: open about:blank in a new tab where we reliably have a handle to write into.
+          const w = window.open('about:blank', '_blank');
+          if (!w) {
+            // popup blocked — fallback to opening target directly in a new tab
+            hideOverlay();
+            if (GAME_URL) {
+              window.open(GAME_URL, '_blank', 'noopener,noreferrer');
+            } else {
+              // nothing configured; show message
+              alert('Unable to open secure view. Please allow popups or set a games URL in the page.');
+            }
+            cloakBtn.disabled = false;
+            cloakBtn.setAttribute('aria-pressed','false');
+            return;
+          }
+
+          // write into the new tab
+          w.document.open();
+          w.document.write(shellHtml(GAME_URL || ''));
+          w.document.close();
+          w.focus();
+        }
 
         hideOverlay();
         cloakBtn.disabled = false;
@@ -192,8 +212,7 @@
         hideOverlay();
         cloakBtn.disabled = false;
         cloakBtn.setAttribute('aria-pressed','false');
-        // if something goes wrong, open in new tab as chosen fallback
-        window.open(GAME_URL, '_blank', 'noopener,noreferrer');
+        if (GAME_URL) window.open(GAME_URL, '_blank', 'noopener,noreferrer');
       }
     });
   </script>
